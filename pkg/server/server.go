@@ -2,7 +2,7 @@ package server
 
 import (
 	"fmt"
-	"github.com/gomodule/redigo/redis"
+	"github.com/spf13/viper"
 	"redis_test/pkg/redisproxy"
 )
 
@@ -19,14 +19,26 @@ const (
 
 func Run() {
 	fmt.Println("redis run")
-	redisCli := new(redisproxy.SentinelRedis)
-	err := redisCli.CreateConn()
+	fmt.Println(viper.GetStringSlice("spec.redis.type"), viper.GetStringSlice("spec.redis.sentinels"))
+	redisCli := func() redisproxy.ClientRedis {
+		if viper.GetString("spec.redis.type") == "Sentinel" {
+			return new(redisproxy.SentinelRedis)
+		} else if viper.GetString("spec.redis.type") == "Cluster" {
+			return new(redisproxy.ClusterRedis)
+		}
+		return nil
+	}()
+	if redisCli == nil {
+		fmt.Println("new redis failed.")
+		return
+	}
+	err := redisCli.CreateConn(viper.GetStringSlice("spec.redis.sentinels"), viper.GetString("spec.redis.passwd"), viper.GetString("spec.redis.masterName"), viper.GetInt("spec.redis.db"))
 	if err != nil {
 		fmt.Println("crete fail", err)
 		return
 	}
 
-	conn, oconn, err := redisCli.Get()
+	conn, err := redisCli.Get()
 	defer conn.Close()
 	if err != nil {
 		fmt.Println("conn fail", err)
@@ -42,14 +54,18 @@ func Run() {
 	fmt.Println("hash", hash)
 	lua.SendHash(conn, "mykey", 111111, 111111)
 
-	olua := redis.NewScript(1, SCRIPT_ZADD_OR_ZINCRBY)
-	redis.Ints(oconn.Do("SCRIPT", "EXISTS", olua.Hash()))
-	/*	if val2[0] == 0 {
-		err = olua.Load(oconn)
-	}*/
-	olua.SendHash(oconn, "key111", 111, 111)
+	lua.SendHash(conn, "key111", 111, 111)
+	lua.SendHash(conn, "my123456", 2222, 2222)
+	lua.SendHash(conn, "my156", 2222, 2222)
+	lua.SendHash(conn, "23456", 2222, 2222)
+	lua.SendHash(conn, "ispjfk", 2222, 2222)
 
 	err = conn.Flush()
-	fmt.Println(err)
+	v, err := conn.Receive()
+	fmt.Println(v, err)
+	v, err = conn.Receive()
+	fmt.Println(v, err)
+	v, err = conn.Receive()
+	fmt.Println(v, err)
 	return
 }

@@ -2,12 +2,10 @@ package redisproxy
 
 import (
 	"errors"
-	"fmt"
 	"time"
 
 	"github.com/FZambia/sentinel"
 	"github.com/gomodule/redigo/redis"
-	"github.com/spf13/viper"
 )
 
 type SentinelProxy struct {
@@ -20,24 +18,34 @@ type SentinelRedis struct {
 	p        *redis.Pool
 }
 
-func (s *SentinelRedis) CreateConn() error {
-	return s.createSentinelRedis()
+func (s *SentinelRedis) CreateConn(addrs []string, passwd string, name string, db int) error {
+	return s.createSentinelRedis(addrs, passwd, name, db)
 }
 
-func (s *SentinelRedis) createSentinelRedis() error {
-	fmt.Println("spec.redis.sentinels", viper.GetStringSlice("spec.redis.sentinels"))
-	fmt.Println("spec.redis.masterName", viper.GetString("spec.redis.masterName"))
+func (s *SentinelRedis) createSentinelRedis(addrs []string, passwd string, name string, db int) error {
 	s.sentinel = &sentinel.Sentinel{
-		Addrs:      viper.GetStringSlice("spec.redis.sentinels"),
-		MasterName: viper.GetString("spec.redis.masterName"),
+		Addrs:      addrs,
+		MasterName: name,
 		Dial: func(addr string) (redis.Conn, error) {
 			timeout := 300 * time.Millisecond
-			c, err := redis.Dial("tcp", addr,
-				redis.DialPassword(viper.GetString("spec.redis.passwd")),
-				redis.DialConnectTimeout(timeout),
-				redis.DialReadTimeout(timeout),
-				redis.DialWriteTimeout(timeout),
-			)
+			c, err := func() (redis.Conn, error) {
+				if db != 0 {
+					return redis.Dial("tcp", addr,
+						redis.DialPassword(passwd),
+						redis.DialDatabase(db),
+						redis.DialConnectTimeout(timeout),
+						redis.DialReadTimeout(timeout),
+						redis.DialWriteTimeout(timeout),
+					)
+				} else {
+					return redis.Dial("tcp", addr,
+						redis.DialPassword(passwd),
+						redis.DialConnectTimeout(timeout),
+						redis.DialReadTimeout(timeout),
+						redis.DialWriteTimeout(timeout),
+					)
+				}
+			}()
 			if err != nil {
 				return nil, err
 			}
@@ -80,8 +88,6 @@ func (s *SentinelRedis) createSentinelRedis() error {
 
 	_, err = conn.Do("PING")
 
-	if err != nil {
-	}
 	return err
 }
 
@@ -103,11 +109,11 @@ func (s *SentinelRedis) Stats() map[string]redis.PoolStats {
 	return stats
 }
 
-func (s *SentinelRedis) Get() (ClientProxy, redis.Conn, error) {
+func (s *SentinelRedis) Get() (ClientProxy, error) {
 	proxy := new(SentinelProxy)
 	proxy.conn = s.p.Get()
 	proxy.Type = SENTINEL
-	return proxy, proxy.conn, nil
+	return proxy, nil
 }
 
 func (s *SentinelProxy) GetType() RedisType {
@@ -118,7 +124,6 @@ func (s *SentinelProxy) NewScript(argc int, strong interface{}) ScriptInterface 
 	script := new(SentinelScript)
 	conn := new(ClientProxy)
 	*conn = s
-	fmt.Println("NewScript 1", conn, *conn, s, *s)
 	script.NewScript(conn, argc, strong)
 	return script
 }
@@ -133,7 +138,6 @@ func (s *SentinelProxy) DoWithTimeout(timeout time.Duration, cmd string, args ..
 }
 
 func (s *SentinelProxy) Send(cmd string, args ...interface{}) error {
-	fmt.Println("Conn Send", cmd, "|", args)
 	return s.conn.Send(cmd, args...)
 }
 
@@ -151,4 +155,7 @@ func (s *SentinelProxy) Close() error {
 
 func (s *SentinelProxy) Err() error {
 	return s.conn.Err()
+}
+
+func (s *SentinelProxy) PushBack(receive ReceiveType) {
 }

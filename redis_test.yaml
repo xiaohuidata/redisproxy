@@ -1,36 +1,6 @@
-apiVersion: ccnp.ccod.com/v1
 spec:
-  server:
-    address: 0.0.0.0:11400
-    peerAddress: ""
-    advAddress: ""
   redis:
-    sentinels:  ["10.130.29.96:26379"]
+    sentinels:  ["10.130.29.96:7000"]
     masterName: mymaster
     passwd: ""
-    type:
-  mysql:
-    user: root
-    passwd: 123456
-    address: 10.130.28.3:3306
-    database: ccnp
-  log:
-    logPath: /var/log/ccnp/
-    maxSize: 500
-    maxRotate: 100
-    maxDays: 30
-  knob:
-    updateLimit: 150
-    updatePeroid: 2
-    countByISP: false
-    debug: true
-  optional:
-    domainCompany:
-      d2API: ""
-      dbAddress: "10.130.41.231"
-      dbName: ucds
-      dbUser: ucds
-      dbPasswd: ucds
-    labelAPI:
-      dcmsx: ""
-
+    type: "Cluster"

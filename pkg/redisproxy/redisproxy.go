@@ -13,8 +13,8 @@ const (
 )
 
 type ClientRedis interface {
-	CreateConn() error
-	Get() (ClientProxy, redis.Conn, error)
+	CreateConn(addrs []string, passwd string, name string, db int) error
+	Get() (ClientProxy, error)
 	Stats() map[string]redis.PoolStats
 }
 
@@ -28,4 +28,5 @@ type ClientProxy interface {
 	Receive() (interface{}, error)
 	Close() error
 	Err() error
+	PushBack(receive ReceiveType)
 }

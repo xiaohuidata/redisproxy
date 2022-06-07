@@ -2,6 +2,7 @@ package redisproxy
 
 import (
 	"github.com/gomodule/redigo/redis"
+	"strings"
 )
 
 type ScriptProxy struct {
@@ -17,10 +18,12 @@ type ScriptInterface interface {
 
 type ClusterScript struct {
 	ScriptProxy
-	lua func(argv ...interface{})
+	lua  func(argv ...interface{})
+	argc int
 }
 
 func (c *ClusterScript) NewScript(conn *ClientProxy, argc int, strong interface{}) {
+	c.argc = argc
 	c.strong = strong
 	c.conn = conn
 }
@@ -30,9 +33,35 @@ func (c *ClusterScript) Ints() (string, error) {
 }
 
 func (c *ClusterScript) SendHash(args ...interface{}) error {
-	ScriptAddOrZincrby := c.strong.(func(...interface{}) (int, error))
-	ScriptAddOrZincrby(args...)
+	if c.argc > 1 {
+		c.sendKeysHash(args...)
+	} else if c.argc < 0 {
+		return nil
+	} else {
+		return c.sendKeyHash(args...)
+	}
 	return nil
+}
+
+// 多key调用，在写script使用redis函数，需要增加锁
+func (c *ClusterScript) sendKeysHash(args ...interface{}) error {
+	ScriptAddOrZincrby := c.strong.(func(...interface{}) (int, error))
+	v, err := ScriptAddOrZincrby(args...)
+	(*c.conn).PushBack(ReceiveType{v, err})
+	return nil
+}
+
+func (c *ClusterScript) sendKeyHash(args ...interface{}) error {
+	script := redis.NewScript(c.argc, c.strong.(string))
+	argv := args[1:]
+	argvs := append([]interface{}{script.Hash(), c.argc}, argv...)
+	argve := append([]interface{}{c.strong.(string), c.argc}, argv...)
+	v, err := (*c.conn).Do("EVALSHA", argvs...)
+	if e, ok := err.(redis.Error); ok && strings.HasPrefix(string(e), "NOSCRIPT ") {
+		v, err = (*c.conn).Do("EVAL", argve...)
+	}
+	(*c.conn).PushBack(ReceiveType{v, err})
+	return err
 }
 
 type SentinelScript struct {

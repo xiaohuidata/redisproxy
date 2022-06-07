@@ -5,7 +5,6 @@ import (
 	"errors"
 	"github.com/gomodule/redigo/redis"
 	"github.com/mna/redisc"
-	"github.com/spf13/viper"
 	"time"
 )
 
@@ -24,18 +23,22 @@ type ClusterProxy struct {
 
 type ClusterRedis struct {
 	cluster *redisc.Cluster
+	passwd  string
+	db      int
 }
 
-func (c *ClusterRedis) CreateConn() error {
-	return c.createClusterRedis()
+func (c *ClusterRedis) CreateConn(addrs []string, passwd string, name string, db int) error {
+	return c.createClusterRedis(addrs, passwd, db)
 }
 
-func (c *ClusterRedis) createClusterRedis() error {
+func (c *ClusterRedis) createClusterRedis(addrs []string, passwd string, db int) error {
 	c.cluster = &redisc.Cluster{
-		StartupNodes: viper.GetStringSlice("spec.redis.sentinels"),
+		StartupNodes: addrs,
 		DialOptions:  []redis.DialOption{redis.DialConnectTimeout(300 * time.Millisecond)},
 		CreatePool:   c.createPool,
 	}
+	c.passwd = passwd
+	c.db = db
 	if err := c.cluster.Refresh(); err != nil {
 		return err
 	}
@@ -44,6 +47,8 @@ func (c *ClusterRedis) createClusterRedis() error {
 }
 
 func (c *ClusterRedis) createPool(addr string, options ...redis.DialOption) (*redis.Pool, error) {
+	passwd := c.passwd
+	db := c.db
 	return &redis.Pool{
 		MaxIdle:     100,
 		MaxActive:   2000,
@@ -54,18 +59,18 @@ func (c *ClusterRedis) createPool(addr string, options ...redis.DialOption) (*re
 			if err != nil {
 				return nil, err
 			}
-			if viper.GetString("spec.redis.passwd") != "" {
-				if _, err := c.Do("AUTH", viper.GetString("spec.redis.passwd")); err != nil {
+			if passwd != "" {
+				if _, err := c.Do("AUTH", passwd); err != nil {
 					c.Close()
 					return nil, err
 				}
 			}
-			/*
-				if _, err := c.Do("SELECT", viper.GetString("spec.redis.dbindex")); err != nil {
+			if db != 0 {
+				if _, err := c.Do("SELECT", db); err != nil {
 					c.Close()
 					return nil, err
 				}
-			*/
+			}
 			return c, nil
 		},
 		TestOnBorrow: func(c redis.Conn, t time.Time) error {
@@ -79,13 +84,13 @@ func (c *ClusterRedis) Stats() map[string]redis.PoolStats {
 	return c.cluster.Stats()
 }
 
-func (c *ClusterRedis) Get() (ClientProxy, redis.Conn, error) {
+func (c *ClusterRedis) Get() (ClientProxy, error) {
 	proxy := new(ClusterProxy)
 	proxy.conn = c.cluster.Get()
 	retryConn, err := redisc.RetryConn(proxy.conn, 3, 100*time.Millisecond)
 	proxy.retryConn = retryConn
 	proxy.Type = CLUSTER
-	return proxy, proxy.conn, err
+	return proxy, err
 }
 
 func (c *ClusterProxy) GetType() RedisType {
@@ -116,6 +121,10 @@ func (c *ClusterProxy) Send(cmd string, args ...interface{}) error {
 	val, err := c.Do(cmd, args...)
 	c.receives.PushBack(ReceiveType{val, err})
 	return err
+}
+
+func (c *ClusterProxy) PushBack(receive ReceiveType) {
+	c.receives.PushBack(receive)
 }
 
 func (c *ClusterProxy) Flush() error {
