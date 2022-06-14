@@ -2,6 +2,7 @@ package redisproxy
 
 import (
 	"errors"
+	"math/rand"
 	"time"
 
 	"github.com/FZambia/sentinel"
@@ -126,6 +127,26 @@ func (s *SentinelProxy) NewScript(argc int, strong interface{}) ScriptInterface 
 	*conn = s
 	script.NewScript(conn, argc, strong)
 	return script
+}
+
+func (s *SentinelProxy) NewMutex(name string) *Mutex {
+	return &Mutex{
+		name:   name,
+		expiry: 8 * time.Second,
+		tries:  32,
+		delayFunc: func(tries int) time.Duration {
+			return time.Duration(rand.Intn(maxRetryDelayMilliSec-minRetryDelayMilliSec)+minRetryDelayMilliSec) * time.Millisecond
+		},
+		genValueFunc:  genValue,
+		driftFactor:   0.01,
+		timeoutFactor: 0.05,
+
+		conn: func() *ClientProxy {
+			conn := new(ClientProxy)
+			*conn = s
+			return conn
+		}(),
+	}
 }
 
 func (s *SentinelProxy) Do(cmd string, args ...interface{}) (interface{}, error) {

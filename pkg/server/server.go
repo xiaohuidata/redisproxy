@@ -1,7 +1,9 @@
 package server
 
 import (
+	"errors"
 	"fmt"
+	"github.com/gomodule/redigo/redis"
 	"github.com/spf13/viper"
 	"redis_test/pkg/redisproxy"
 )
@@ -16,6 +18,29 @@ const (
 	end
   `
 )
+
+func ScriptAddOrZincrby(args ...interface{}) (interface{}, error) {
+	if len(args) != 5 {
+		return nil, errors.New("args len field")
+	}
+
+	conn := args[0].(redisproxy.ClientProxy)
+	key1 := args[1]
+	key2 := args[2]
+	arg1 := args[3]
+	arg2 := args[4]
+	value, err := redis.Int64(conn.Do("EXISTS", key1))
+	fmt.Println("EXISTS", value, err)
+
+	var inter interface{}
+	if value == 0 {
+		inter, err = conn.Do("SET", key1, arg1)
+	} else {
+		inter, err = conn.Do("SET", key2, arg2)
+	}
+	fmt.Println("SET", inter, err)
+	return inter, err
+}
 
 func Run() {
 	fmt.Println("redis run")
@@ -67,5 +92,40 @@ func Run() {
 	fmt.Println(v, err)
 	v, err = conn.Receive()
 	fmt.Println(v, err)
+	v, err = conn.Receive()
+	fmt.Println(v, err)
+	v, err = conn.Receive()
+	fmt.Println(v, err)
+	v, err = conn.Receive()
+	fmt.Println(v, err)
+
+	mutext := conn.NewMutex("myMutex")
+	err = mutext.Lock()
+	if err != nil {
+		fmt.Println("lock1 err", err)
+		return
+	}
+	fmt.Println("lock1", err)
+	defer mutext.Unlock()
+	v, err = mutext.Valid()
+	fmt.Println("Valid", v, err)
+	fmt.Println("value", mutext.Value())
+	v, err = mutext.Extend()
+	fmt.Println("extend", v, err)
+	fmt.Println(mutext.Lock())
+
+	scriptfunc := ScriptAddOrZincrby
+	luafunc := conn.NewScript(2, scriptfunc)
+	hash, err = luafunc.Ints()
+	if err != nil {
+		fmt.Println("luafunc ints fail", err)
+		return
+	}
+	fmt.Println("hash", hash)
+	luafunc.SendHash(conn, "key1", "key2", "value1", "value2")
+	err = conn.Flush()
+	v, err = conn.Receive()
+	fmt.Println(v, err)
+
 	return
 }

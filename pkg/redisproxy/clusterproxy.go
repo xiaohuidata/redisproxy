@@ -5,6 +5,7 @@ import (
 	"errors"
 	"github.com/gomodule/redigo/redis"
 	"github.com/mna/redisc"
+	"math/rand"
 	"time"
 )
 
@@ -103,6 +104,26 @@ func (c *ClusterProxy) NewScript(argc int, strong interface{}) ScriptInterface {
 	*conn = c
 	script.NewScript(conn, argc, strong)
 	return script
+}
+
+func (c *ClusterProxy) NewMutex(name string) *Mutex {
+	return &Mutex{
+		name:   name,
+		expiry: 8 * time.Second,
+		tries:  32,
+		delayFunc: func(tries int) time.Duration {
+			return time.Duration(rand.Intn(maxRetryDelayMilliSec-minRetryDelayMilliSec)+minRetryDelayMilliSec) * time.Millisecond
+		},
+		genValueFunc:  genValue,
+		driftFactor:   0.01,
+		timeoutFactor: 0.05,
+
+		conn: func() *ClientProxy {
+			conn := new(ClientProxy)
+			*conn = c
+			return conn
+		}(),
+	}
 }
 
 func (c *ClusterProxy) Do(cmd string, args ...interface{}) (interface{}, error) {

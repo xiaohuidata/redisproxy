@@ -21,6 +21,7 @@ type ClientRedis interface {
 type ClientProxy interface {
 	GetType() RedisType
 	NewScript(argc int, strong interface{}) ScriptInterface
+	NewMutex(name string) *Mutex
 	Do(cmd string, args ...interface{}) (interface{}, error)
 	DoWithTimeout(timeout time.Duration, cmd string, args ...interface{}) (v interface{}, err error)
 	Send(cmd string, args ...interface{}) error

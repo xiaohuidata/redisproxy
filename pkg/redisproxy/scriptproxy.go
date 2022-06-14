@@ -45,7 +45,7 @@ func (c *ClusterScript) SendHash(args ...interface{}) error {
 
 // 多key调用，在写script使用redis函数，需要增加锁
 func (c *ClusterScript) sendKeysHash(args ...interface{}) error {
-	ScriptAddOrZincrby := c.strong.(func(...interface{}) (int, error))
+	ScriptAddOrZincrby := c.strong.(func(...interface{}) (interface{}, error))
 	v, err := ScriptAddOrZincrby(args...)
 	(*c.conn).PushBack(ReceiveType{v, err})
 	return nil
