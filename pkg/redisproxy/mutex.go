@@ -7,8 +7,9 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
-	"github.com/gomodule/redigo/redis"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
 )
 
 type DelayFunc func(tries int) time.Duration
@@ -170,6 +171,7 @@ var deleteScript = `
 func (m *Mutex) release(ctx context.Context, value string) (bool, error) {
 	lua := (*m.conn).NewScript(1, deleteScript)
 	lua.SendHash((*m.conn), 1, m.name, m.value)
+	(*m.conn).Flush()
 	status, err := (*m.conn).Receive()
 	if err != nil {
 		return false, err
@@ -188,6 +190,7 @@ var touchScript = `
 func (m *Mutex) touch(ctx context.Context, value string, expiry int) (bool, error) {
 	lua := (*m.conn).NewScript(1, touchScript)
 	err := lua.SendHash((*m.conn), 1, m.name, value, expiry)
+	(*m.conn).Flush()
 	status, err := (*m.conn).Receive()
 	if err != nil {
 		return false, err

@@ -1,0 +1,6 @@
+spec:
+  redis:
+    sentinels:  ["10.130.28.34:7000", "10.130.28.34:7001", "10.130.28.34:7002"]
+    masterName: mymaster
+    passwd: ""
+    type: "Cluster"
