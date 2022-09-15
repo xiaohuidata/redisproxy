@@ -114,18 +114,20 @@ func RunLua() {
 	v, err = redis.Int(conn.Receive())
 	fmt.Println(v, err)
 
-	scriptfunc := ScriptAddOrZincrby
-	luafunc := conn.NewScript(2, scriptfunc)
-	hash, err = luafunc.Ints()
-	if err != nil {
-		fmt.Println("luafunc ints fail", err)
-		return
+	if conn.GetType() == redisproxy.CLUSTER {
+		scriptfunc := ScriptAddOrZincrby
+		luafunc := conn.NewScript(2, scriptfunc)
+		hash, err = luafunc.Ints()
+		if err != nil {
+			fmt.Println("luafunc ints fail", err)
+			return
+		}
+		fmt.Println("hash", hash)
+		luafunc.SendHash(conn, "key1", "key2", "value1", "value2")
+		err = conn.Flush()
+		vm, err := conn.Receive()
+		fmt.Println(vm, err)
 	}
-	fmt.Println("hash", hash)
-	luafunc.SendHash(conn, "key1", "key2", "value1", "value2")
-	err = conn.Flush()
-	vm, err := conn.Receive()
-	fmt.Println(vm, err)
 
 	return
 }

@@ -169,14 +169,9 @@ var deleteScript = `
 `
 
 func (m *Mutex) release(ctx context.Context, value string) (bool, error) {
-	lua := (*m.conn).NewScript(1, deleteScript)
-	lua.SendHash((*m.conn), 1, m.name, m.value)
-	(*m.conn).Flush()
-	status, err := (*m.conn).Receive()
-	if err != nil {
-		return false, err
-	}
-	return status != int64(0), nil
+	script := (*m.conn).NewScript(1, deleteScript)
+	status, err := redis.Int64(script.Do(m.name, value))
+	return err == nil && status != 0, err
 }
 
 var touchScript = `
@@ -188,12 +183,8 @@ var touchScript = `
 `
 
 func (m *Mutex) touch(ctx context.Context, value string, expiry int) (bool, error) {
-	lua := (*m.conn).NewScript(1, touchScript)
-	err := lua.SendHash((*m.conn), 1, m.name, value, expiry)
+	script := (*m.conn).NewScript(1, touchScript)
 	(*m.conn).Flush()
-	status, err := (*m.conn).Receive()
-	if err != nil {
-		return false, err
-	}
-	return status != int64(0), err
+	status, err := redis.Int64(script.Do(m.name, value, expiry))
+	return err == nil && status != 0, err
 }

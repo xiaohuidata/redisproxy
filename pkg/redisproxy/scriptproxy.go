@@ -1,8 +1,9 @@
 package redisproxy
 
 import (
-	"github.com/gomodule/redigo/redis"
 	"strings"
+
+	"github.com/gomodule/redigo/redis"
 )
 
 type ScriptProxy struct {
@@ -13,6 +14,7 @@ type ScriptProxy struct {
 type ScriptInterface interface {
 	NewScript(*ClientProxy, int, interface{})
 	Ints() (string, error)
+	Do(keysAndArgs ...interface{}) (interface{}, error)
 	SendHash(args ...interface{}) error
 }
 
@@ -30,6 +32,10 @@ func (c *ClusterScript) NewScript(conn *ClientProxy, argc int, strong interface{
 
 func (c *ClusterScript) Ints() (string, error) {
 	return "", nil
+}
+
+func (c *ClusterScript) Do(keysAndArgs ...interface{}) (interface{}, error) {
+	return c.sendScript(keysAndArgs...)
 }
 
 func (c *ClusterScript) SendHash(args ...interface{}) error {
@@ -52,6 +58,12 @@ func (c *ClusterScript) sendKeysHash(args ...interface{}) error {
 }
 
 func (c *ClusterScript) sendKeyHash(args ...interface{}) error {
+	v, err := c.sendScript(args...)
+	(*c.conn).PushBack(ReceiveType{v, err})
+	return err
+}
+
+func (c *ClusterScript) sendScript(args ...interface{}) (interface{}, error) {
 	script := redis.NewScript(c.argc, c.strong.(string))
 	argv := args[1:]
 	argvs := append([]interface{}{script.Hash(), c.argc}, argv...)
@@ -60,8 +72,7 @@ func (c *ClusterScript) sendKeyHash(args ...interface{}) error {
 	if e, ok := err.(redis.Error); ok && strings.HasPrefix(string(e), "NOSCRIPT ") {
 		v, err = (*c.conn).Do("EVAL", argve...)
 	}
-	(*c.conn).PushBack(ReceiveType{v, err})
-	return err
+	return v, err
 }
 
 type SentinelScript struct {
@@ -82,6 +93,11 @@ func (s *SentinelScript) Ints() (string, error) {
 		err = s.lua.Load(*s.conn)
 	}
 	return hash, err
+}
+
+func (s *SentinelScript) Do(keysAndArgs ...interface{}) (interface{}, error) {
+	s.lua = s.strong.(*redis.Script)
+	return s.lua.Do(*s.conn, keysAndArgs...)
 }
 
 func (s *SentinelScript) SendHash(args ...interface{}) error {

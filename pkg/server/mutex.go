@@ -48,7 +48,7 @@ func RunMutex() {
 	fmt.Println("value", mutext.Value())
 	va, err = mutext.Extend()
 	fmt.Println("extend", va, err)
-	fmt.Println(mutext.Lock())
+	fmt.Println("lock false", mutext.Lock())
 
 	return
 }
