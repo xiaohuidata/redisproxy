@@ -47,6 +47,27 @@ func ScriptAddOrZincrby(args ...interface{}) (interface{}, error) {
 	return inter, err
 }
 
+type State2Event{
+	state string
+	event string
+}
+
+const (
+	state = map[State2Event]string{
+		State2Event{
+			"1",
+			"2",
+		}:"3",
+	}
+	arr = `state = {1 = {}}`
+
+	SCRIPT = `
+	
+	local state = redis.call('HMGET', KEYS[1], ARGV[1])
+	if state == 
+	`
+)
+
 func RunLua() {
 	fmt.Println("redis run")
 	fmt.Println(viper.GetStringSlice("spec.redis.type"), viper.GetStringSlice("spec.redis.sentinels"))

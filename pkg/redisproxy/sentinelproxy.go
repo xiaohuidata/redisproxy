@@ -30,7 +30,6 @@ func (s *SentinelRedis) createSentinelRedis(addrs []string, passwd string, name 
 		Dial: func(addr string) (redis.Conn, error) {
 			timeout := 300 * time.Millisecond
 			c, err := redis.Dial("tcp", addr,
-				redis.DialPassword(passwd),
 				redis.DialConnectTimeout(timeout),
 				redis.DialReadTimeout(timeout),
 				redis.DialWriteTimeout(timeout))
@@ -62,12 +61,14 @@ func (s *SentinelRedis) createSentinelRedis(addrs []string, passwd string, name 
 			conn, e := func() (redis.Conn, error) {
 				if db != 0 {
 					return redis.Dial("tcp", masterAddr,
+						redis.DialPassword(passwd),
 						redis.DialDatabase(db),
 						redis.DialConnectTimeout(timeout),
 						redis.DialReadTimeout(timeout),
 						redis.DialWriteTimeout(timeout))
 				} else {
 					return redis.Dial("tcp", masterAddr,
+						redis.DialPassword(passwd),
 						redis.DialConnectTimeout(timeout),
 						redis.DialReadTimeout(timeout),
 						redis.DialWriteTimeout(timeout))
