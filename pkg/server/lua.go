@@ -47,7 +47,8 @@ func ScriptAddOrZincrby(args ...interface{}) (interface{}, error) {
 	return inter, err
 }
 
-type State2Event{
+/*
+struct State2Event{
 	state string
 	event string
 }
@@ -57,16 +58,17 @@ const (
 		State2Event{
 			"1",
 			"2",
-		}:"3",
+		}: "3",
 	}
 	arr = `state = {1 = {}}`
 
 	SCRIPT = `
-	
+
 	local state = redis.call('HMGET', KEYS[1], ARGV[1])
-	if state == 
+	if state ==
 	`
 )
+*/
 
 func RunLua() {
 	fmt.Println("redis run")

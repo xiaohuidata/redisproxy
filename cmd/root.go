@@ -17,9 +17,10 @@ package cmd
 
 import (
 	"fmt"
-	"github.com/spf13/cobra"
 	"os"
 	"path/filepath"
+
+	"github.com/spf13/cobra"
 
 	//	homedir "github.com/mitchellh/go-homedir"
 	"github.com/spf13/viper"
@@ -52,7 +53,10 @@ func Execute() {
 		os.Exit(1)
 	}
 	fmt.Println("Execute")
+
+	//	for i := 0; i < 10000000; i++ {
 	server.Run()
+	//	}
 
 }
 

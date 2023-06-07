@@ -35,7 +35,8 @@ func (c *ClusterScript) Ints() (string, error) {
 }
 
 func (c *ClusterScript) Do(keysAndArgs ...interface{}) (interface{}, error) {
-	return c.sendScript(keysAndArgs...)
+	args := append([]interface{}{c.conn}, keysAndArgs...)
+	return c.sendScript(args...)
 }
 
 func (c *ClusterScript) SendHash(args ...interface{}) error {

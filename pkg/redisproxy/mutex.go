@@ -7,6 +7,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/base64"
+	"fmt"
 	"time"
 
 	"github.com/gomodule/redigo/redis"
@@ -162,7 +163,7 @@ func (m *Mutex) acquire(ctx context.Context, value string) (bool, error) {
 
 var deleteScript = `
 	if redis.call("GET", KEYS[1]) == ARGV[1] then
-		return return redis.call("DEL", KEYS[1])
+		return redis.call("DEL", KEYS[1])
 	else
 		return 0
 	end
@@ -171,6 +172,7 @@ var deleteScript = `
 func (m *Mutex) release(ctx context.Context, value string) (bool, error) {
 	script := (*m.conn).NewScript(1, deleteScript)
 	status, err := redis.Int64(script.Do(m.name, value))
+	fmt.Println("release", status, err)
 	return err == nil && status != 0, err
 }
 

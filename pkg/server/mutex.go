@@ -41,14 +41,35 @@ func RunMutex() {
 		fmt.Println("lock1 err", err)
 		return
 	}
-	mutext.Unlock()
-	fmt.Println("lock1", err)
+	ok, err := mutext.Unlock()
+	fmt.Println("lock1", ok, err)
 	va, err := mutext.Valid()
 	fmt.Println("Valid", va, err)
 	fmt.Println("value", mutext.Value())
-	va, err = mutext.Extend()
-	fmt.Println("extend", va, err)
-	fmt.Println("lock false", mutext.Lock())
+	/*
+		va, err = mutext.Extend()
+		fmt.Println("extend", va, err)
+		fmt.Println("lock false", mutext.Lock())
+	*/
+	fmt.Println()
+	fmt.Println()
+	fmt.Println("lock2")
+	mutextp := conn.NewMutex("haveMutex")
+	err = mutextp.Lock()
+	if err != nil {
+		fmt.Println("lock2 err", err)
+		return
+	}
+	/*
+		fmt.Println("lock2", err)
+		ok, err = mutextp.Unlock()
+		fmt.Println("Unlock2", ok, err)
+	*/
+
+	conn.Do("set", "aaa", "aaa")
+	conn.Do("set", "bbb", "bbb")
+	ok, err = mutextp.Unlock()
+	fmt.Println("Unlock2", ok, err)
 
 	return
 }
