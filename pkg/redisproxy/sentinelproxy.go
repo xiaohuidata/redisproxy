@@ -17,6 +17,7 @@ type SentinelProxy struct {
 type SentinelRedis struct {
 	sentinel *sentinel.Sentinel
 	p        *redis.Pool
+	sp       *redis.Pool
 }
 
 func (s *SentinelRedis) CreateConn(addrs []string, passwd string, name string, db int) error {
@@ -82,10 +83,59 @@ func (s *SentinelRedis) createSentinelRedis(addrs []string, passwd string, name 
 		},
 	}
 
+	s.sp = &redis.Pool{
+		MaxIdle:      100,
+		MaxActive:    2000,
+		Wait:         true,
+		IdleTimeout:  180 * time.Second,
+		TestOnBorrow: redisTestOnBorrow,
+		Dial: func() (redis.Conn, error) {
+			slaveAddr, e := s.sentinel.SlaveAddrs()
+
+			if e != nil {
+				return nil, e
+			}
+			slavelen := len(slaveAddr)
+			if slavelen == 0 {
+				return nil, errors.New("slave null")
+			}
+			timeout := 300 * time.Millisecond
+			conn, e := func() (redis.Conn, error) {
+				if db != 0 {
+					return redis.Dial("tcp", slaveAddr[0],
+						redis.DialPassword(passwd),
+						redis.DialDatabase(db),
+						redis.DialConnectTimeout(timeout),
+						redis.DialReadTimeout(timeout),
+						redis.DialWriteTimeout(timeout))
+				} else {
+					return redis.Dial("tcp", slaveAddr[0],
+						redis.DialPassword(passwd),
+						redis.DialConnectTimeout(timeout),
+						redis.DialReadTimeout(timeout),
+						redis.DialWriteTimeout(timeout))
+				}
+			}()
+
+			if e != nil {
+				return nil, e
+			}
+			return conn, nil
+		},
+	}
+
 	conn := s.p.Get()
 	defer conn.Close()
 
 	_, err = conn.Do("PING")
+
+	if err != nil {
+		return err
+	}
+
+	sconn := s.sp.Get()
+	defer sconn.Close()
+	_, err = sconn.Do("PING")
 
 	return err
 }
@@ -111,6 +161,13 @@ func (s *SentinelRedis) Stats() map[string]redis.PoolStats {
 func (s *SentinelRedis) Get() (ClientProxy, error) {
 	proxy := new(SentinelProxy)
 	proxy.conn = s.p.Get()
+	proxy.Type = SENTINEL
+	return proxy, nil
+}
+
+func (s *SentinelRedis) GetSlave() (ClientProxy, error) {
+	proxy := new(SentinelProxy)
+	proxy.conn = s.sp.Get()
 	proxy.Type = SENTINEL
 	return proxy, nil
 }

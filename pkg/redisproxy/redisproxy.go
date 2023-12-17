@@ -1,8 +1,9 @@
 package redisproxy
 
 import (
-	"github.com/gomodule/redigo/redis"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
 )
 
 type RedisType int
@@ -15,6 +16,7 @@ const (
 type ClientRedis interface {
 	CreateConn(addrs []string, passwd string, name string, db int) error
 	Get() (ClientProxy, error)
+	GetSlave() (ClientProxy, error)
 	Stats() map[string]redis.PoolStats
 }
 

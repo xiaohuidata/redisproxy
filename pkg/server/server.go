@@ -9,6 +9,10 @@ func Run() {
 	fmt.Println()
 	fmt.Println()
 
+	RunSlave()
+	fmt.Println()
+	fmt.Println()
+
 	RunLua()
 	fmt.Println()
 	fmt.Println()

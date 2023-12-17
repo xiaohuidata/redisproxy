@@ -3,10 +3,11 @@ package redisproxy
 import (
 	"container/list"
 	"errors"
-	"github.com/gomodule/redigo/redis"
-	"github.com/mna/redisc"
 	"math/rand"
 	"time"
+
+	"github.com/gomodule/redigo/redis"
+	"github.com/mna/redisc"
 )
 
 type ReceiveType struct {
@@ -88,6 +89,20 @@ func (c *ClusterRedis) Stats() map[string]redis.PoolStats {
 func (c *ClusterRedis) Get() (ClientProxy, error) {
 	proxy := new(ClusterProxy)
 	proxy.conn = c.cluster.Get()
+	retryConn, err := redisc.RetryConn(proxy.conn, 3, 100*time.Millisecond)
+	proxy.retryConn = retryConn
+	proxy.Type = CLUSTER
+	return proxy, err
+}
+
+// 如果命令是非只读的命令，只读标记会被更新为false
+func (c *ClusterRedis) GetSlave() (ClientProxy, error) {
+	proxy := new(ClusterProxy)
+	proxy.conn = c.cluster.Get()
+	err := redisc.ReadOnlyConn(proxy.conn.(*redisc.Conn))
+	if err != nil {
+		return proxy, err
+	}
 	retryConn, err := redisc.RetryConn(proxy.conn, 3, 100*time.Millisecond)
 	proxy.retryConn = retryConn
 	proxy.Type = CLUSTER
